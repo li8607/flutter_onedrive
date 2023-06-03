@@ -56,7 +56,7 @@ class OneDrive with ChangeNotifier {
       'response_type': 'code',
       'client_id': clientID,
       'redirect_uri': redirectURL,
-      'scope': 'onedrive.readwrite offline_access',
+      'scope': scopes,
     });
     final result = await FlutterWebAuth2.authenticate(
       url: url.toString(),
