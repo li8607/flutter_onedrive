@@ -274,6 +274,19 @@ class OneDrive with ChangeNotifier {
 
     return false;
   }
+
+  Future<http.Response?> getItem(String itemPath) async {
+    final accessToken = await _tokenManager.getAccessToken();
+    if (accessToken == null) {
+      // No access token
+      return null;
+    }
+    var url = Uri.parse("$apiEndpoint/me/drive/root:/$itemPath");
+    return http.get(
+      url,
+      headers: {"Authorization": "Bearer $accessToken"},
+    );
+  }
 }
 
 class UploadStatus {
