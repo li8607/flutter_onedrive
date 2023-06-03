@@ -4,7 +4,8 @@ import 'package:flutter_onedrive/flutter_onedrive.dart';
 void main() {}
 
 FutureBuilder buildConnectButton(BuildContext context) {
-  final onedrive = OneDrive(redirectURL: "your redirect URL", clientID: "your client id");
+  final onedrive =
+      OneDrive(redirectURL: "your redirect URL", clientID: "your client id");
 
   return FutureBuilder(
     future: onedrive.isConnected(),
@@ -21,7 +22,7 @@ FutureBuilder buildConnectButton(BuildContext context) {
         return MaterialButton(
           child: const Text("Connect"),
           onPressed: () async {
-            final success = await onedrive.connect(context);
+            final success = await onedrive.connect();
             if (success) {
               // Download files
               final txtBytes = await onedrive.pull("/xxx/xxx.txt");

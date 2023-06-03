@@ -5,17 +5,19 @@ import 'dart:async';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_web_auth_2/flutter_web_auth_2.dart';
 // import 'package:flutter_web_auth/flutter_web_auth.dart';
 import 'package:http/http.dart' as http;
-import 'package:oauth_webauth/oauth_webauth.dart';
 import 'dart:convert' show jsonDecode;
 
 import 'token.dart';
 
 class OneDrive with ChangeNotifier {
   static const String authHost = "login.microsoftonline.com";
-  static const String authEndpoint = "https://$authHost/common/oauth2/v2.0/authorize";
-  static const String tokenEndpoint = "https://$authHost/common/oauth2/v2.0/token";
+  static const String authEndpoint =
+      "https://$authHost/common/oauth2/v2.0/authorize";
+  static const String tokenEndpoint =
+      "https://$authHost/common/oauth2/v2.0/token";
   static const String apiEndpoint = "https://graph.microsoft.com/v1.0/";
   static const String errCANCELED = "CANCELED";
 
@@ -48,76 +50,33 @@ class OneDrive with ChangeNotifier {
     return (accessToken?.isNotEmpty) ?? false;
   }
 
-  Future<bool> connect(BuildContext context) async {
-// Construct the url
-    // final authUrl = Uri.https(authHost, authEndpoint, {
-    //   'response_type': 'code',
-    //   'client_id': clientID,
-    //   'redirect_uri': redirectURL,
-    //   'scopes': scope,
-    //   'state': state,
-    // });
+  Future<bool> connect() async {
+    final url = Uri.https(authHost, 'common/oauth2/v2.0/authorize', {
+      'response_type': 'code',
+      'client_id': clientID,
+      'redirect_uri': redirectURL,
+      'scope': 'onedrive.readwrite offline_access',
+    });
+    final result = await FlutterWebAuth2.authenticate(
+        url: url.toString(), callbackUrlScheme: redirectURL);
+    final code = Uri.parse(result).queryParameters['code'];
+    final urlCode = Uri.https(authHost, 'common/oauth2/v2.0/token');
+    final response = await http.post(
+      urlCode,
+      body: {
+        'client_id': clientID,
+        'redirect_uri': redirectURL,
+        'grant_type': 'authorization_code',
+        'code': code,
+      },
+    );
 
-// open browser to authorize endpoint
-    try {
-      // final result =
-      //     await FlutterWebAuth.authenticate(url: authUrl.toString(), callbackUrlScheme: callbackSchema);
+    final data = jsonDecode(response.body);
 
-      final scopeArray = scopes.split(" ");
-
-      final result = await OAuthWebScreen.start(
-        context: context,
-        configuration: OAuthConfiguration(
-          authorizationEndpointUrl: authEndpoint,
-          tokenEndpointUrl: tokenEndpoint,
-          // clientSecret: clientSecret,
-          clientId: clientID,
-          redirectUrl: redirectURL,
-          scopes: scopeArray,
-          // promptValues: const ['login'],
-          // loginHint: 'xxx@mail.com',
-          onCertificateValidate: (certificate) {
-            ///This is recommended
-            /// Do certificate validations here
-            /// If false is returned then a CertificateException() will be thrown
-            return true;
-          },
-          // contentLocale: Locale('es'),
-          // refreshBtnVisible: false,
-          // clearCacheBtnVisible: false,
-          // textLocales: {
-          //   ///Optionally texts can be localized
-          //   OAuthWebView.backButtonTooltipKey: 'Ir atrás',
-          //   OAuthWebView.forwardButtonTooltipKey: 'Ir adelante',
-          //   OAuthWebView.reloadButtonTooltipKey: 'Recargar',
-          //   OAuthWebView.clearCacheButtonTooltipKey: 'Limpiar caché',
-          //   OAuthWebView.closeButtonTooltipKey: 'Cerrar',
-          //   OAuthWebView.clearCacheWarningMessageKey: '¿Está seguro que desea limpiar la caché?',
-          // },
-        ),
-      );
-
-// // get code
-//       final code = Uri.parse(result).queryParameters['code'];
-
-// // use code to exchange token
-//       final resp = await http.post(Uri.parse(tokenEndpoint), body: {
-//         'client_id': clientID,
-//         'redirect_uri': redirectURL,
-//         'grant_type': 'authorization_code',
-//         'code': code,
-//       });
-
-//  read token from Response
-      if (result != null) {
-        await _tokenManager.saveTokenResp(result);
-        notifyListeners();
-        return true;
-      }
-    } on PlatformException catch (err) {
-      if (err.code != errCANCELED) {
-        debugPrint("# OneDrive -> connect: $err");
-      }
+    if (data != null) {
+      await _tokenManager.saveTokenResp(data);
+      notifyListeners();
+      return true;
     }
 
     return false;
@@ -148,7 +107,8 @@ class OneDrive with ChangeNotifier {
         return Uint8List(0);
       }
 
-      debugPrint("# OneDrive -> pull: ${resp.statusCode}\n# Body: ${resp.body}");
+      debugPrint(
+          "# OneDrive -> pull: ${resp.statusCode}\n# Body: ${resp.body}");
     } catch (err) {
       debugPrint("# OneDrive -> pull: $err");
     }
@@ -164,17 +124,20 @@ class OneDrive with ChangeNotifier {
     }
 
     const int pageSize = 1024 * 1024; // page size
-    final int maxPage = (bytes.length / pageSize.toDouble()).ceil(); // total pages
+    final int maxPage =
+        (bytes.length / pageSize.toDouble()).ceil(); // total pages
 
 // create upload session
 // https://docs.microsoft.com/en-us/onedrive/developer/rest-api/api/driveitem_createuploadsession?view=odsp-graph-online
     var now = DateTime.now();
-    var url = Uri.parse("$apiEndpoint/me/drive/root:$remotePath:/createUploadSession");
+    var url = Uri.parse(
+        "$apiEndpoint/me/drive/root:$remotePath:/createUploadSession");
     var resp = await http.post(
       url,
       headers: {"Authorization": "Bearer $accessToken"},
     );
-    debugPrint("# Create Session: ${DateTime.now().difference(now).inMilliseconds} ms");
+    debugPrint(
+        "# Create Session: ${DateTime.now().difference(now).inMilliseconds} ms");
 
     if (resp.statusCode == 200) {
       // create session success
@@ -206,7 +169,8 @@ class OneDrive with ChangeNotifier {
           body: pageData,
         );
 
-        final status = UploadStatus(pageIndex + 1, maxPage, start, end, contentLength, range);
+        final status = UploadStatus(
+            pageIndex + 1, maxPage, start, end, contentLength, range);
         yield status;
 
         debugPrint(
@@ -220,11 +184,13 @@ class OneDrive with ChangeNotifier {
           return;
         } else {
           // has issue
-          throw Exception("Upload http error. [${resp.statusCode}]\n${resp.body}");
+          throw Exception(
+              "Upload http error. [${resp.statusCode}]\n${resp.body}");
         }
       }
     } else {
-      throw Exception("Create upload session http error [${resp.statusCode}]\n${resp.body}");
+      throw Exception(
+          "Create upload session http error [${resp.statusCode}]\n${resp.body}");
     }
   }
 
@@ -237,17 +203,20 @@ class OneDrive with ChangeNotifier {
 
     try {
       const int pageSize = 1024 * 1024; // page size
-      final int maxPage = (bytes.length / pageSize.toDouble()).ceil(); // total pages
+      final int maxPage =
+          (bytes.length / pageSize.toDouble()).ceil(); // total pages
 
 // create upload session
 // https://docs.microsoft.com/en-us/onedrive/developer/rest-api/api/driveitem_createuploadsession?view=odsp-graph-online
       var now = DateTime.now();
-      var url = Uri.parse("$apiEndpoint/me/drive/root:$remotePath:/createUploadSession");
+      var url = Uri.parse(
+          "$apiEndpoint/me/drive/root:$remotePath:/createUploadSession");
       var resp = await http.post(
         url,
         headers: {"Authorization": "Bearer $accessToken"},
       );
-      debugPrint("# Create Session: ${DateTime.now().difference(now).inMilliseconds} ms");
+      debugPrint(
+          "# Create Session: ${DateTime.now().difference(now).inMilliseconds} ms");
 
       if (resp.statusCode == 200) {
         // create session success
@@ -312,5 +281,6 @@ class UploadStatus {
   final String contentLength;
   final String range;
 
-  UploadStatus(this.index, this.total, this.start, this.end, this.contentLength, this.range);
+  UploadStatus(this.index, this.total, this.start, this.end, this.contentLength,
+      this.range);
 }

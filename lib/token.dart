@@ -34,22 +34,8 @@ class DefaultTokenManager extends ITokenManager {
 
   /// save token response
   @override
-  Future<void> saveTokenResp(dynamic resp) async {
-    // final Map<String, dynamic> tokenObj = jsonDecode(resp.body);
-    // await _saveTokenMap(tokenObj);
-
-    try {
-      // final expAt = DateTime.now().toUtc().add(Duration(seconds: tokenObj['expires_in']));
-      // debugPrint("# Expres at: $expAt");
-
-      _secureStorage.write(key: _expireKey, value: resp.expiration?.toString());
-      _secureStorage.write(key: _accessTokenKey, value: resp.accessToken);
-      _secureStorage.write(key: _refreshTokenKey, value: resp.refreshToken);
-      // ignore: empty_catches
-    } on NoSuchMethodError {
-    } catch (err) {
-      debugPrint("# DefaultTokenManager -> _saveTokenMap: $err");
-    }
+  Future<void> saveTokenResp(dynamic data) async {
+    await _saveTokenMap(data);
   }
 
   /// clear token
@@ -80,7 +66,8 @@ class DefaultTokenManager extends ITokenManager {
         return null;
       }
 
-      final expAt = DateTime.parse(accessTokenExpiresAt!).add(const Duration(minutes: -2));
+      final expAt = DateTime.parse(accessTokenExpiresAt!)
+          .add(const Duration(minutes: -2));
 
       if (DateTime.now().toUtc().isAfter(expAt)) {
         // expired, refresh
@@ -117,7 +104,8 @@ class DefaultTokenManager extends ITokenManager {
       });
       if (resp.statusCode != 200) {
         // refresh failed
-        debugPrint("# DefaultTokenManager -> _refreshToken: ${resp.statusCode}\n# Body: ${resp.body}");
+        debugPrint(
+            "# DefaultTokenManager -> _refreshToken: ${resp.statusCode}\n# Body: ${resp.body}");
 
         await clearStoredToken();
         return null;
@@ -139,12 +127,15 @@ class DefaultTokenManager extends ITokenManager {
   /// save token map
   Future<void> _saveTokenMap(Map<String, dynamic> tokenObj) async {
     try {
-      final expAt = DateTime.now().toUtc().add(Duration(seconds: tokenObj['expires_in']));
+      final expAt =
+          DateTime.now().toUtc().add(Duration(seconds: tokenObj['expires_in']));
       debugPrint("# Expres at: $expAt");
 
       _secureStorage.write(key: _expireKey, value: expAt.toString());
-      _secureStorage.write(key: _accessTokenKey, value: tokenObj['access_token']);
-      _secureStorage.write(key: _refreshTokenKey, value: tokenObj['refresh_token']);
+      _secureStorage.write(
+          key: _accessTokenKey, value: tokenObj['access_token']);
+      _secureStorage.write(
+          key: _refreshTokenKey, value: tokenObj['refresh_token']);
     } catch (err) {
       debugPrint("# DefaultTokenManager -> _saveTokenMap: $err");
     }
