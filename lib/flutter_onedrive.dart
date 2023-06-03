@@ -287,6 +287,19 @@ class OneDrive with ChangeNotifier {
       headers: {"Authorization": "Bearer $accessToken"},
     );
   }
+
+  Future<http.Response?> getDrive() async {
+    final accessToken = await _tokenManager.getAccessToken();
+    if (accessToken == null) {
+      // No access token
+      return null;
+    }
+    var url = Uri.parse("$apiEndpoint/me/drive");
+    return http.get(
+      url,
+      headers: {"Authorization": "Bearer $accessToken"},
+    );
+  }
 }
 
 class UploadStatus {
