@@ -31,11 +31,12 @@ class OneDrive with ChangeNotifier {
   OneDrive({
     required this.clientID,
     required this.redirectURL,
+    // required this.callbackSchema,
     this.scopes = "offline_access Files.ReadWrite.All",
     this.state = "OneDriveState",
     ITokenManager? tokenManager,
   }) {
-    // redirectURL = "$callbackSchema://auth";
+    // redirectURL = "$callbackSchema://oauth2";
     _tokenManager = tokenManager ??
         DefaultTokenManager(
           tokenEndpoint: tokenEndpoint,
@@ -58,7 +59,9 @@ class OneDrive with ChangeNotifier {
       'scope': 'onedrive.readwrite offline_access',
     });
     final result = await FlutterWebAuth2.authenticate(
-        url: url.toString(), callbackUrlScheme: redirectURL);
+      url: url.toString(),
+      callbackUrlScheme: Uri.tryParse(redirectURL)?.scheme ?? "",
+    );
     final code = Uri.parse(result).queryParameters['code'];
     final urlCode = Uri.https(authHost, 'common/oauth2/v2.0/token');
     final response = await http.post(
